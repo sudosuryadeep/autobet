@@ -26,28 +26,93 @@
 </div>
 <script>
 (function(){
-  var K='kp_root_unlocked',R='kp_root_role',A='kp_admin_pwd',G=document.getElementById('rootGate'),P=document.getElementById('rootPwd'),E=document.getElementById('rootErr'),B=document.getElementById('rootBtn');
-  if(sessionStorage.getItem(K)==='1'){G.style.display='none';return;}
+
+  var K='kp_root_unlocked',
+      R='kp_root_role',
+      A='kp_admin_pwd',
+      G=document.getElementById('rootGate'),
+      P=document.getElementById('rootPwd'),
+      E=document.getElementById('rootErr'),
+      B=document.getElementById('rootBtn');
+
+  if(sessionStorage.getItem(K)==='1'){
+    G.style.display='none';
+    return;
+  }
+
   function unlock(){
-    B.disabled=true;B.textContent='Checking...';
-    fetch('/api/admin/validate-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:P.value})})
-    .then(function(r){return r.json()})
+
+    B.disabled=true;
+    B.textContent='Checking...';
+
+    fetch('http://13.201.136.19/api/admin/validate-password', {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json'
+      },
+      body:JSON.stringify({
+        password:P.value
+      })
+    })
+
+    .then(function(r){
+      return r.json();
+    })
+
     .then(function(d){
+
+      console.log(d);
+
       if(d.ok){
+
         sessionStorage.setItem(K,'1');
         sessionStorage.setItem(R,d.role);
-        if(d.role==='admin') sessionStorage.setItem(A,P.value);
+
+        if(d.role==='admin'){
+          sessionStorage.setItem(A,P.value);
+        }
+
         G.style.display='none';
+
       } else {
-        E.textContent='Wrong password';P.value='';P.style.borderColor='var(--red)';
-        setTimeout(function(){P.style.borderColor='';E.textContent=''},1500);
+
+        E.textContent='Wrong password';
+        P.value='';
+        P.style.borderColor='red';
+
+        setTimeout(function(){
+          P.style.borderColor='';
+          E.textContent='';
+        },1500);
+
       }
+
     })
-    .catch(function(){E.textContent='Server error';})
-    .finally(function(){B.disabled=false;B.textContent='UNLOCK';});
+
+    .catch(function(err){
+
+      console.log(err);
+      E.textContent='Server error';
+
+    })
+
+    .finally(function(){
+
+      B.disabled=false;
+      B.textContent='UNLOCK';
+
+    });
+
   }
-  B.addEventListener('click',unlock);
-  P.addEventListener('keydown',function(e){if(e.key==='Enter')unlock()});
+
+  B.addEventListener('click', unlock);
+
+  P.addEventListener('keydown', function(e){
+    if(e.key==='Enter'){
+      unlock();
+    }
+  });
+
 })();
 </script>
 
@@ -167,53 +232,132 @@
     #monBtnStart{display:none}
   </style>
   <script>
-  (function(){
-    function setMonitorUI(running){
-      var stop=document.getElementById('monBtnStop');
-      var start=document.getElementById('monBtnStart');
-      var label=document.getElementById('monStatusLabel');
-      var dReg=document.getElementById('monDotReg');
-      var dPro=document.getElementById('monDotPro');
-      if(running){
-        stop.style.display='inline-flex'; start.style.display='none';
-        label.textContent='● RUNNING'; label.style.color='#22c55e';
-        dReg.style.animation='monPulse 1.5s infinite';
-        dPro.style.animation='monPulse 1.5s infinite';
-      } else {
-        stop.style.display='none'; start.style.display='inline-flex';
-        label.textContent='■ STOPPED'; label.style.color='#ef4444';
-        dReg.style.animation='none'; dReg.style.opacity='.3';
-        dPro.style.animation='none'; dPro.style.opacity='.3';
-      }
+(function(){
+
+  const API = 'http://13.201.136.19';
+
+  function setMonitorUI(running){
+
+    var stop=document.getElementById('monBtnStop');
+    var start=document.getElementById('monBtnStart');
+    var label=document.getElementById('monStatusLabel');
+    var dReg=document.getElementById('monDotReg');
+    var dPro=document.getElementById('monDotPro');
+
+    if(running){
+
+      stop.style.display='inline-flex';
+      start.style.display='none';
+
+      label.textContent='● RUNNING';
+      label.style.color='#22c55e';
+
+      dReg.style.animation='monPulse 1.5s infinite';
+      dPro.style.animation='monPulse 1.5s infinite';
+
+    } else {
+
+      stop.style.display='none';
+      start.style.display='inline-flex';
+
+      label.textContent='■ STOPPED';
+      label.style.color='#ef4444';
+
+      dReg.style.animation='none';
+      dReg.style.opacity='.3';
+
+      dPro.style.animation='none';
+      dPro.style.opacity='.3';
     }
-    window.monitorStop=function(){
-      fetch('/api/monitor/stop',{method:'POST'})
-        .then(function(r){return r.json()})
-        .then(function(d){setMonitorUI(d.running);})
-        .catch(function(){});
-    };
-    window.monitorStart=function(){
-      fetch('/api/monitor/start',{method:'POST'})
-        .then(function(r){return r.json()})
-        .then(function(d){setMonitorUI(d.running);})
-        .catch(function(){});
-    };
-    window.monitorResetHard=function(){
-      if(!confirm('⚠️ This will delete ALL CSV result files and reset all trader stats.\nStart a fresh monitor session?')) return;
-      fetch('/api/monitor/reset-hard',{method:'POST'})
-        .then(function(r){return r.json()})
-        .then(function(d){
-          alert('✅ Monitor reset! Deleted: ' + (d.deleted && d.deleted.length ? d.deleted.join(', ') : 'no CSV files'));
-        })
-        .catch(function(){ alert('❌ Reset failed'); });
-    };
-    // Fetch current status on load
-    fetch('/api/monitor/status')
-      .then(function(r){return r.json()})
-      .then(function(d){setMonitorUI(d.running);})
-      .catch(function(){});
-  })();
-  </script>
+  }
+
+  window.monitorStop=function(){
+
+    fetch(API + '/api/monitor/stop', {
+      method:'POST'
+    })
+
+    .then(function(r){
+      return r.json();
+    })
+
+    .then(function(d){
+      setMonitorUI(d.running);
+    })
+
+    .catch(function(err){
+      console.log(err);
+    });
+
+  };
+
+  window.monitorStart=function(){
+
+    fetch(API + '/api/monitor/start', {
+      method:'POST'
+    })
+
+    .then(function(r){
+      return r.json();
+    })
+
+    .then(function(d){
+      setMonitorUI(d.running);
+    })
+
+    .catch(function(err){
+      console.log(err);
+    });
+
+  };
+
+  window.monitorResetHard=function(){
+
+    if(!confirm('⚠️ This will delete ALL CSV result files and reset all trader stats.\nStart a fresh monitor session?')) return;
+
+    fetch(API + '/api/monitor/reset-hard', {
+      method:'POST'
+    })
+
+    .then(function(r){
+      return r.json();
+    })
+
+    .then(function(d){
+
+      alert(
+        '✅ Monitor reset! Deleted: ' +
+        (d.deleted && d.deleted.length
+          ? d.deleted.join(', ')
+          : 'no CSV files')
+      );
+
+    })
+
+    .catch(function(){
+
+      alert('❌ Reset failed');
+
+    });
+
+  };
+
+  fetch(API + '/api/monitor/status')
+
+    .then(function(r){
+      return r.json();
+    })
+
+    .then(function(d){
+      setMonitorUI(d.running);
+    })
+
+    .catch(function(err){
+      console.log(err);
+    });
+
+})();
+</script>
 
   <!-- TWO COLUMN GRID -->
   <div class="kp-grid">
@@ -471,10 +615,12 @@
 </div>
 
 <!-- ═══ Socket.IO Client ═══ -->
-<script src="/socket.io/socket.io.js"></script>
+<script src="socket.io.js"></script>
 
 <!-- ═══ MULTI-ACCOUNT LOGIN + DASHBOARD LOGIC ═══ -->
 <script>
+    const API = 'http://13.201.136.19';
+
 (function(){
   'use strict';
 
@@ -578,7 +724,9 @@
       reAuthAll();
       return;
     }
-    socket = io({ transports: ['websocket', 'polling'] });
+   socket = io(API, {
+  transports: ['websocket', 'polling']
+});
 
     socket.on('connect', function() {
       console.log('[KP] Socket connected via ' + socket.io.engine.transport.name);
@@ -1085,7 +1233,7 @@
     captchaBtn.disabled = true;
     captchaBtn.textContent = 'Loading...';
     try {
-      var res = await fetch('/api/goa/captcha', {
+      var res = await fetch(API + '/api/goa/captcha', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
@@ -1183,7 +1331,7 @@
         deviceId: deviceId
       };
 
-      var res = await fetch('/api/goa/login', {
+      var res = await fetch(API + '/api/goa/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loginPayload)
